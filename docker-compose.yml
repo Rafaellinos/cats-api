@@ -1,0 +1,39 @@
+version: '2'
+
+services:
+  db:
+    image: postgres:12-alpine
+    container_name: postgres12a
+    restart: unless-stopped
+    mem_limit: 1024m
+    mem_reservation: 128m
+    environment:
+      - POSTGRES_DB=catsapi
+      - POSTGRES_PASSWORD=cats123
+      - POSTGRES_USER=cats
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    ports:
+      - 5430:5432
+    volumes:
+      - ${PWD}/pg_data:/var/lib/postgresql/data/pgdata
+    networks:
+      - cats-net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: cats-api
+    restart: unless-stopped
+    mem_limit: 1024m
+    mem_reservation: 128m
+    ports:
+      - 8002:8000
+    networks:
+      - cats-net
+    depends_on:
+      - db
+
+networks:
+  cats-net:
+    driver: bridge
