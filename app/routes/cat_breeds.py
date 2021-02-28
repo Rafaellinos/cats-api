@@ -5,22 +5,27 @@ from app.services import cat_breeds
 from app.models.schemas.cat_breeds import (
     CatBreedsOut,
     CatBreedsIn,
+    CatBreedsSearch,
 )
 
 router = APIRouter()
 
 
-@router.get("/cat-breed/{breed}", response_model=List[CatBreedsOut])
+@router.get("/cat-breed", response_model=List[CatBreedsOut])
 async def get_cat_breed(
-        breeds: CatBreedsIn = Depends(),
+        breeds: CatBreedsSearch = Depends(),
 ):
     result = await cat_breeds.get_cat_breeds(breeds)
     return result
 
 
-@router.get("/cat-breed", response_model=List[CatBreedsOut])
-async def get_all_breeds():
-    result = await cat_breeds.get_all_breeds()
+@router.get("/cat-breed/{id}", response_model=CatBreedsOut)
+async def get_all_breeds(
+        id: str,
+):
+    result = await cat_breeds.get_cat_breed_by_id(id)
+    if not result:
+        raise HTTPException(status_code=404, detail='Cat Breed not found :(')
     return result
 
 
