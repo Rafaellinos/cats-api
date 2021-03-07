@@ -2,7 +2,9 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.services import cat_breeds
+from app.services.errors import BreedAlreadyExists
 from app.models.schemas.cat_breeds import (
+    CatBreeds,
     CatBreedsOut,
     CatBreedsIn,
     CatBreedsSearch,
@@ -12,18 +14,18 @@ router = APIRouter()
 
 
 @router.get("/cat-breed", response_model=List[CatBreedsOut])
-async def get_cat_breed(
+async def get_cat_breeds(
         breeds: CatBreedsSearch = Depends(),
 ):
     result = await cat_breeds.get_cat_breeds(breeds)
     return result
 
 
-@router.get("/cat-breed/{id}", response_model=CatBreedsOut)
-async def get_all_breeds(
-        id: str,
+@router.get("/cat-breed/{public_id}", response_model=CatBreedsOut)
+async def get_cat_breed(
+        public_id: str,
 ):
-    result = await cat_breeds.get_cat_breed_by_id(id)
+    result = await cat_breeds.get_cat_breed_by_id(public_id)
     if not result:
         raise HTTPException(status_code=404, detail='Cat Breed not found :(')
     return result
@@ -33,22 +35,28 @@ async def get_all_breeds(
 async def post_cat_breed(
         breed: CatBreedsIn,
 ):
-    result = await cat_breeds.post_cat_breed(breed)
+    try:
+        result = await cat_breeds.post_cat_breed(breed)
+    except BreedAlreadyExists:
+        raise HTTPException(status_code=409, detail="Breed already exists")
     return {
         "public_id": result,
     }
 
 
 @router.put(
-    "/cat-breed/{id}",
+    "/cat-breed/{public_id}",
     response_model=CatBreedsOut,
     response_model_exclude_unset=True,
 )
 async def put_cat_breed(
-        id: str,  # TODO avoid override builtin
+        public_id: str,
         breed: CatBreedsIn,
 ):
-    result = await cat_breeds.put_cat_breed(id, breed)
+    try:
+        result = await cat_breeds.put_cat_breed(public_id, breed)
+    except BreedAlreadyExists:
+        raise HTTPException(status_code=409, detail="Breed already exists")
     if not result:
         raise HTTPException(status_code=404, detail="breed not found")
     return {
@@ -60,13 +68,27 @@ async def put_cat_breed(
     }
 
 
+@router.patch(
+    "/cat-breed/{public_id}",
+)
+async def patch_cat_breed(
+        public_id: str,
+        breed: CatBreeds,
+):
+    update_data = breed.dict(exclude_unset=True)
+    try:
+        return await cat_breeds.patch_cat_breed(public_id, update_data)
+    except BreedAlreadyExists:
+        raise HTTPException(status_code=409, detail="Breed already exists")
+
+
 @router.delete(
-    "/cat-breed/{id}",
+    "/cat-breed/{public_id}",
 )
 async def delete_cat_breed(
-        id: str,
+        public_id: str,
 ):
-    result = await cat_breeds.delete_cat_breed(id)
+    result = await cat_breeds.delete_cat_breed(public_id)
     if not result:
         raise HTTPException(status_code=404, detail="breed not found")
     return {

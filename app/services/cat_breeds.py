@@ -9,6 +9,24 @@ from app.models.schemas.cat_breeds import (
     CatBreedsSearch,
 )
 from app.database.database import database
+from .errors import BreedAlreadyExists
+
+
+async def get_breed_by_name(breed: str):
+    query = (
+        cat_breeds
+        .select()
+        .where(
+            cat_breeds.c.breed == breed,
+        )
+    )
+    return await database.fetch_all(query)
+
+
+async def ensure_unique_breed(breed: str) -> None:
+    found = await get_breed_by_name(breed)
+    if found:
+        raise BreedAlreadyExists
 
 
 async def get_cat_breeds(breeds: CatBreedsSearch):
@@ -72,6 +90,7 @@ async def get_cat_breed_by_id(breed_id: str) -> dict:
 
 
 async def post_cat_breed(breed_values: CatBreedsIn):
+    await ensure_unique_breed(breed_values.breed)
     query = (
         cat_breeds
         .insert()
@@ -90,7 +109,32 @@ async def post_cat_breed(breed_values: CatBreedsIn):
     return await database.execute(query)
 
 
+async def patch_cat_breed(public_id: str, breed_values: dict):
+    if breed_values.get("breed"):
+        await ensure_unique_breed(breed_values.get("breed"))
+    query = (
+        cat_breeds
+        .update()
+        .where(
+            public_id == cat_breeds.c.public_id,
+        )
+        .values(
+            **breed_values,
+        )
+        .returning(
+            cat_breeds.c.breed,
+            cat_breeds.c.public_id,
+            cat_breeds.c.location_origin,
+            cat_breeds.c.coat_length,
+            cat_breeds.c.body_type,
+            cat_breeds.c.pattern,
+        )
+    )
+    return await database.execute(query)
+
+
 async def put_cat_breed(public_id: str, breed_values: CatBreedsIn):
+    await ensure_unique_breed(breed_values.breed)
     query = (
         cat_breeds
         .update()
@@ -104,11 +148,20 @@ async def put_cat_breed(public_id: str, breed_values: CatBreedsIn):
             body_type=breed_values.body_type,
             pattern=breed_values.pattern,
         )
+        .returning(
+            cat_breeds.c.breed,
+            cat_breeds.c.public_id,
+            cat_breeds.c.location_origin,
+            cat_breeds.c.coat_length,
+            cat_breeds.c.body_type,
+            cat_breeds.c.pattern,
+        )
     )
-    return await database.execute(query)
+    result = await database.execute(query)
+    return result
 
 
-async def delete_cat_breed(public_id: int):
+async def delete_cat_breed(public_id: str):
     query = cat_breeds.delete.where(
         public_id == cat_breeds.c.public_id,
     )
